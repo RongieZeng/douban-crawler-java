@@ -53,20 +53,21 @@ public class CrawlerApplication {
 
     }
 
-    public static void main(String[] args) throws InterruptedException, ExecutionException, TimeoutException {
-        // 初始化线程池
-        Executor executor = new ThreadPoolExecutor(3, 3, 30, TimeUnit.SECONDS
-                , new LinkedBlockingQueue<>(1000)
-                , new ThreadFactory() {
-            private final AtomicInteger threadCount = new AtomicInteger(0);
+    // 初始化线程池
+    static final Executor executor = new ThreadPoolExecutor(3, 3, 30, TimeUnit.SECONDS
+            , new LinkedBlockingQueue<>(1000)
+            , new ThreadFactory() {
+        private final AtomicInteger threadCount = new AtomicInteger(0);
 
-            @Override
-            public Thread newThread(Runnable r) {
-                return new Thread("crawler-async-executor-" + threadCount.incrementAndGet());
-            }
+        @Override
+        public Thread newThread(Runnable r) {
+            return new Thread(r, "crawler-async-executor-" + threadCount.incrementAndGet());
         }
-                , new ThreadPoolExecutor.AbortPolicy()
-        );
+    }
+            , new ThreadPoolExecutor.AbortPolicy()
+    );
+
+    public static void main(String[] args) throws InterruptedException, ExecutionException, TimeoutException {
 
         long startTime = System.currentTimeMillis();
         List<SearchCriteria> criteriaList = new ArrayList<>(Arrays.asList(
@@ -96,18 +97,18 @@ public class CrawlerApplication {
             for (String url : linkList) {
                 future = CompletableFuture.runAsync(() -> {
                     parseBookDesc(url, criteria, crawlResult);
-                });
+                }, executor);
             }
 
             CompletableFuture.allOf(future).join();
             String fileName = String.format("%s-%s-%s.csv", criteria.getTagName(), criteria.getScore(), criteria.getPeople());
             System.out.println(String.format("----------------开始保存数据:%s\n", fileName));
             StringBuilder stringBuilder = new StringBuilder("标题,评分,人数,链接\n");
-            for (Map.Entry<String, Book> entry : crawlResult.entrySet()) {
+            for (Map.Entry<String, Book> entry: crawlResult.entrySet() ) {
                 stringBuilder.append(String.format("%s,%s,%s,%s\n", entry.getKey(), entry.getValue().getScore(), entry.getValue().getPeople(), entry.getValue().getLink()));
             }
 
-            try (FileOutputStream outputStream = new FileOutputStream(fileName)) {
+            try(FileOutputStream outputStream = new FileOutputStream(fileName)) {
                 outputStream.write(stringBuilder.toString().getBytes(Charsets.UTF_8));
                 System.out.println(String.format("----------------数据保存成功:%s\n", fileName));
             } catch (IOException e) {
@@ -187,7 +188,7 @@ public class CrawlerApplication {
                         }
                     }
                 });
-            });
+            }, executor);
 
         }
 
@@ -205,7 +206,7 @@ public class CrawlerApplication {
     private static Document getDoc(String url) {
         Map<String, String> headers = new HashMap<>();
         headers.put("user-agent", "Chrome/83.0");
-//        headers.put("Cookie", "__yadk_uid=");
+        headers.put("Cookie", "gr_user_id=d655a7dd-23c4-4f0c-8fc4-cf46a20c4f4e; _vwo_uuid_v2=DC2F2BDD29FD9988E3DFF419D0AC3506C|907f50b73382849a00392ebebc78c6cb; __yadk_uid=wUcAGwlJOa9QmXqHU8jFfLVVoCOCF993; douban-fav-remind=1; douban-profile-remind=1; __utmv=30149280.204; __gads=ID=3bbb1411b00e4ee9:T=1577672497:S=ALNI_MY-4JQDN_KRLywjJpZsXqY_lSngfw; trc_cookie_storage=taboola%2520global%253Auser-id%3D5cb24f5d-0621-4171-acdd-fcbd118103e1-tuct3f732c3; bid=oHFXpaJovIk; push_noty_num=0; push_doumail_num=0; ll=\"108090\"; Hm_lvt_cfafef0aa0076ffb1a7838fd772f844d=1592824817; ct=y; __utmc=30149280; __utmc=81379588; __utmz=30149280.1594639198.51.20.utmcsr=douban.com|utmccn=(referral)|utmcmd=referral|utmcct=/; __utmz=81379588.1594639198.48.36.utmcsr=douban.com|utmccn=(referral)|utmcmd=referral|utmcct=/; viewed=\"35042630_1039311_35065701_1500149_30244461_27168433_26838785_26576861_30155569_1322455\"; dbcl2=\"2041066:Jc9RF5kSFKM\"; ck=l0Dj; gr_session_id_22c937bbd8ebd703f2d8e9445f7dfd03=11c3f627-9f9f-4a7a-80f2-b56d4e0a36cd; gr_cs1_11c3f627-9f9f-4a7a-80f2-b56d4e0a36cd=user_id%3A0; _pk_ref.100001.3ac3=%5B%22%22%2C%22%22%2C1594776613%2C%22https%3A%2F%2Fwww.douban.com%2F%22%5D; _pk_id.100001.3ac3=47ad0cc4d3ca921f.1565084387.64.1594776613.1594721457.; _pk_ses.100001.3ac3=*; gr_session_id_22c937bbd8ebd703f2d8e9445f7dfd03_11c3f627-9f9f-4a7a-80f2-b56d4e0a36cd=true; __utma=30149280.323262343.1577196782.1594721412.1594776613.57; __utmt_douban=1; __utmb=30149280.1.10.1594776613; __utma=81379588.604583507.1577197113.1594721412.1594776613.53; __utmt=1; __utmb=81379588.1.10.1594776613; ap_v=0,6.0");
         String html = HttpClientUtil.getInstance().get(url, headers);
         return Jsoup.parse(html);
     }
