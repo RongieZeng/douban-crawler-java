@@ -113,9 +113,10 @@ public class HttpClientUtil implements AutoCloseable {
 
     /**
      * http get操作
-     * @param url       请求地址
-     * @param headers   请求头
-     * @return          返回响应内容
+     *
+     * @param url     请求地址
+     * @param headers 请求头
+     * @return 返回响应内容
      */
     public String get(String url, Map<String, String> headers) {
         HttpGet httpGet = new HttpGet(url);
@@ -261,8 +262,8 @@ public class HttpClientUtil implements AutoCloseable {
         @Override
         public void run() {
             try {
-                while (!shutdown) {
-                    synchronized (this) {
+                synchronized (this) {
+                    while (!shutdown) {
                         wait(5000);
                         connMgr.closeExpiredConnections();
                         connMgr.closeIdleConnections(30, TimeUnit.SECONDS);
@@ -277,9 +278,9 @@ public class HttpClientUtil implements AutoCloseable {
          * 关闭监控线程
          */
         public void shutdown() {
-            shutdown = true;
             // 监控线程可能还处于wait()状态，通过notifyAll()唤醒，及时退出while循环
             synchronized (this) {
+                shutdown = true;
                 notifyAll();
             }
         }
